@@ -1,0 +1,2457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Learning OS</title>
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:         #0a0c0f;
+    --surface:    #111418;
+    --surface2:   #181c22;
+    --border:     #1e2530;
+    --border2:    #2a3340;
+    --text:       #d4dde8;
+    --text2:      #7a8fa8;
+    --text3:      #4a5a70;
+    --cyan:       #00d4ff;
+    --cyan-dim:   #00a8cc;
+    --amber:      #f59e0b;
+    --amber-dim:  #d97706;
+    --green:      #10d97a;
+    --green-dim:  #0ab865;
+    --red:        #f43f5e;
+    --purple:     #a855f7;
+    --font-head:  'Syne', sans-serif;
+    --font-mono:  'JetBrains Mono', monospace;
+    --r:          8px;
+    --r2:         12px;
+  }
+
+  html { font-size: 14px; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  /* Layout */
+  .app-shell {
+    display: grid;
+    grid-template-rows: 56px 1fr;
+    grid-template-columns: 240px 1fr;
+    height: 100vh;
+  }
+
+  /* Header */
+  .header {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .logo {
+    font-family: var(--font-head);
+    font-size: 1.15rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--cyan);
+  }
+  .logo span { color: var(--text2); font-weight: 400; }
+  .header-stats { display: flex; gap: 24px; }
+  .hstat { display: flex; flex-direction: column; align-items: flex-end; }
+  .hstat-val { font-size: 1.1rem; font-weight: 500; color: var(--text); }
+  .hstat-lbl { font-size: 0.7rem; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; }
+
+  /* Sidebar */
+  .sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 20px 0;
+    overflow-y: auto;
+  }
+  .nav-section { margin-bottom: 8px; }
+  .nav-label {
+    font-size: 0.65rem;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 4px 20px 8px;
+  }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 20px;
+    cursor: pointer;
+    color: var(--text2);
+    transition: all 0.15s;
+    border-left: 2px solid transparent;
+    font-size: 0.85rem;
+  }
+  .nav-item:hover { color: var(--text); background: var(--surface2); }
+  .nav-item.active {
+    color: var(--cyan);
+    border-left-color: var(--cyan);
+    background: rgba(0,212,255,0.05);
+  }
+  .nav-icon { width: 16px; height: 16px; opacity: 0.7; }
+
+  /* Main */
+  .main {
+    overflow-y: auto;
+    padding: 28px 32px;
+    background: var(--bg);
+  }
+
+  /* Page title */
+  .page-title {
+    font-family: var(--font-head);
+    font-size: 1.6rem;
+    font-weight: 700;
+    margin-bottom: 6px;
+    letter-spacing: -0.02em;
+  }
+  .page-sub { color: var(--text3); font-size: 0.8rem; margin-bottom: 28px; }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r2);
+    padding: 20px;
+  }
+  .card-title {
+    font-family: var(--font-head);
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title::before {
+    content: '';
+    display: inline-block;
+    width: 3px;
+    height: 14px;
+    background: var(--cyan);
+    border-radius: 2px;
+  }
+
+  /* Grid layouts */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .col-span-2 { grid-column: span 2; }
+  .stack { display: flex; flex-direction: column; gap: 16px; }
+
+  /* Study plan tasks */
+  .task-card {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: var(--r);
+    padding: 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    transition: border-color 0.2s;
+  }
+  .task-card:hover { border-color: var(--border2); }
+  .task-num {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: rgba(0,212,255,0.12);
+    border: 1px solid rgba(0,212,255,0.25);
+    color: var(--cyan);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem; font-weight: 500;
+    flex-shrink: 0;
+  }
+  .task-body { flex: 1; min-width: 0; }
+  .task-name { font-family: var(--font-head); font-size: 0.95rem; font-weight: 600; margin-bottom: 4px; }
+  .task-action { color: var(--text2); font-size: 0.78rem; margin-bottom: 8px; }
+  .task-meta { display: flex; gap: 10px; align-items: center; }
+  .task-dur {
+    font-size: 0.72rem;
+    color: var(--amber);
+    background: rgba(245,158,11,0.1);
+    border: 1px solid rgba(245,158,11,0.2);
+    padding: 2px 8px;
+    border-radius: 20px;
+  }
+
+  /* Mastery badge */
+  .mastery {
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-weight: 500;
+  }
+  .m-0 { color: var(--text3); background: rgba(74,90,112,0.15); border: 1px solid rgba(74,90,112,0.2); }
+  .m-1 { color: #60a5fa; background: rgba(96,165,250,0.1); border: 1px solid rgba(96,165,250,0.2); }
+  .m-2 { color: var(--amber); background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.2); }
+  .m-3 { color: var(--green); background: rgba(16,217,122,0.1); border: 1px solid rgba(16,217,122,0.2); }
+
+  /* Stat boxes */
+  .stat-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r2);
+    padding: 18px 20px;
+  }
+  .stat-val {
+    font-family: var(--font-head);
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .stat-lbl { font-size: 0.72rem; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; }
+  .stat-cyan { color: var(--cyan); }
+  .stat-green { color: var(--green); }
+  .stat-amber { color: var(--amber); }
+  .stat-purple { color: var(--purple); }
+
+  /* Progress bar */
+  .prog-bar { height: 4px; background: var(--border2); border-radius: 2px; margin-top: 10px; overflow: hidden; }
+  .prog-fill { height: 100%; background: var(--green); border-radius: 2px; transition: width 0.6s ease; }
+
+  /* Concept rows */
+  .concept-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: var(--r);
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    transition: border-color 0.15s;
+  }
+  .concept-row:hover { border-color: var(--border2); }
+  .concept-name { flex: 1; font-size: 0.88rem; font-weight: 500; font-family: var(--font-head); }
+  .concept-desc { font-size: 0.72rem; color: var(--text3); margin-top: 2px; }
+  .diff-dots { display: flex; gap: 3px; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .dot-on { background: var(--amber); }
+  .dot-off { background: var(--border2); }
+
+  /* Mastery slider buttons */
+  .mastery-btns { display: flex; gap: 4px; }
+  .m-btn {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    border: 1px solid var(--border2);
+    background: transparent;
+    cursor: pointer;
+    font-size: 0.7rem;
+    color: var(--text3);
+    transition: all 0.15s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .m-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+  .m-btn.active-0 { background: rgba(74,90,112,0.3); color: var(--text3); border-color: var(--text3); }
+  .m-btn.active-1 { background: rgba(96,165,250,0.15); color: #60a5fa; border-color: #60a5fa; }
+  .m-btn.active-2 { background: rgba(245,158,11,0.15); color: var(--amber); border-color: var(--amber); }
+  .m-btn.active-3 { background: rgba(16,217,122,0.15); color: var(--green); border-color: var(--green); }
+
+  /* Forms */
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-label { font-size: 0.72rem; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; }
+  .form-input, .form-select, .form-textarea {
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    border-radius: var(--r);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    padding: 10px 12px;
+    outline: none;
+    transition: border-color 0.15s;
+    width: 100%;
+  }
+  .form-input:focus, .form-select:focus, .form-textarea:focus {
+    border-color: var(--cyan);
+    box-shadow: 0 0 0 3px rgba(0,212,255,0.08);
+  }
+  .form-textarea { resize: vertical; min-height: 70px; }
+  .form-select option { background: var(--surface); }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 9px 16px;
+    border-radius: var(--r);
+    border: none;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    font-weight: 500;
+    transition: all 0.15s;
+  }
+  .btn-primary {
+    background: var(--cyan);
+    color: #000;
+  }
+  .btn-primary:hover { background: var(--cyan-dim); }
+  .btn-ghost {
+    background: transparent;
+    color: var(--text2);
+    border: 1px solid var(--border2);
+  }
+  .btn-ghost:hover { border-color: var(--cyan); color: var(--cyan); }
+  .btn-danger {
+    background: transparent;
+    color: var(--red);
+    border: 1px solid rgba(244,63,94,0.3);
+  }
+  .btn-danger:hover { background: rgba(244,63,94,0.1); }
+  .btn-sm { padding: 6px 11px; font-size: 0.76rem; }
+
+  /* Tags */
+  .tag {
+    font-size: 0.68rem;
+    padding: 2px 7px;
+    border-radius: 4px;
+    background: var(--border);
+    color: var(--text3);
+    font-family: var(--font-mono);
+  }
+  .tag-cyan { background: rgba(0,212,255,0.1); color: var(--cyan); }
+
+  /* Graph canvas */
+  .graph-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r2);
+    overflow: hidden;
+    position: relative;
+  }
+  .graph-svg { display: block; width: 100%; cursor: grab; }
+  .graph-svg:active { cursor: grabbing; }
+
+  /* D3 node styles */
+  .d3-node { cursor: pointer; }
+  .d3-node circle {
+    transition: filter 0.2s;
+  }
+  .d3-node:hover circle {
+    filter: brightness(1.3);
+  }
+  .d3-node.selected circle {
+    filter: brightness(1.4) drop-shadow(0 0 10px currentColor);
+  }
+  .d3-node.dimmed { opacity: 0.18; }
+  .d3-node.highlighted { opacity: 1; }
+
+  .d3-link {
+    fill: none;
+    transition: opacity 0.2s;
+  }
+  .d3-link.dimmed { opacity: 0.04; }
+  .d3-link.highlighted { opacity: 1; }
+
+  .d3-label {
+    font-family: 'JetBrains Mono', monospace;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  /* Graph toolbar */
+  .graph-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .graph-search {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: var(--r);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    padding: 7px 12px;
+    outline: none;
+    width: 200px;
+    transition: border-color 0.15s;
+  }
+  .graph-search:focus { border-color: var(--cyan); }
+  .graph-btn {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: var(--r);
+    color: var(--text2);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    padding: 7px 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .graph-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+  .graph-btn.active { background: rgba(0,212,255,0.1); border-color: var(--cyan); color: var(--cyan); }
+
+  /* Inspector panel */
+  .graph-inspector {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 230px;
+    background: rgba(10,12,15,0.94);
+    border: 1px solid var(--border2);
+    border-radius: var(--r2);
+    padding: 16px;
+    backdrop-filter: blur(8px);
+    animation: scaleIn 0.15s ease;
+    z-index: 10;
+  }
+  .inspector-name {
+    font-family: var(--font-head);
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin-bottom: 6px;
+    color: var(--text);
+    line-height: 1.3;
+  }
+  .inspector-desc {
+    font-size: 0.72rem;
+    color: var(--text2);
+    margin-bottom: 12px;
+    line-height: 1.5;
+  }
+  .inspector-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 0.72rem;
+  }
+  .inspector-lbl { color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; }
+  .inspector-section {
+    border-top: 1px solid var(--border);
+    margin-top: 12px;
+    padding-top: 12px;
+  }
+  .inspector-prereq {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    padding: 4px 0;
+    color: var(--text2);
+  }
+  .inspector-prereq-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .mastery-track {
+    display: flex;
+    gap: 4px;
+    margin-top: 10px;
+  }
+  .mastery-pip {
+    flex: 1;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border2);
+    transition: background 0.3s;
+  }
+  .mastery-pip.filled-0 { background: #4a5a70; }
+  .mastery-pip.filled-1 { background: #3b82f6; }
+  .mastery-pip.filled-2 { background: #f59e0b; }
+  .mastery-pip.filled-3 { background: #10d97a; }
+
+  /* Graph legend */
+  .graph-legend {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    display: flex;
+    gap: 12px;
+    background: rgba(10,12,15,0.88);
+    padding: 8px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    backdrop-filter: blur(4px);
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.67rem;
+    color: var(--text3);
+  }
+  .legend-dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* Zoom controls */
+  .zoom-controls {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .zoom-btn {
+    width: 30px; height: 30px;
+    background: rgba(10,12,15,0.88);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    color: var(--text2);
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    backdrop-filter: blur(4px);
+  }
+  .zoom-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+
+  /* Node styles in SVG */
+  .node-circle { transition: r 0.2s; cursor: pointer; }
+  .node-label { font-family: 'JetBrains Mono', monospace; pointer-events: none; }
+
+  /* ── Knowledge Gap Detection ─────────────────────────────────────────────── */
+
+  .gap-alert {
+    background: rgba(244,63,94,0.07);
+    border: 1px solid rgba(244,63,94,0.25);
+    border-radius: var(--r2);
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .gap-alert:hover { background: rgba(244,63,94,0.12); }
+  .gap-alert-icon { font-size: 1.3rem; flex-shrink: 0; }
+  .gap-alert-body { flex: 1; }
+  .gap-alert-title { font-family: var(--font-head); font-weight: 700; font-size: 0.88rem; color: var(--red); margin-bottom: 2px; }
+  .gap-alert-sub { font-size: 0.72rem; color: var(--text3); }
+  .gap-alert-cta { font-size: 0.75rem; color: var(--red); border: 1px solid rgba(244,63,94,0.35); border-radius: 6px; padding: 5px 10px; white-space: nowrap; flex-shrink: 0; }
+
+  .score-bar-wrap { width: 100%; }
+  .score-bar-track { height: 5px; background: var(--border2); border-radius: 3px; overflow: hidden; margin-top: 4px; }
+  .score-bar-fill { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
+  .score-bar-label { display: flex; justify-content: space-between; align-items: center; font-size: 0.68rem; color: var(--text3); margin-bottom: 2px; }
+  .score-bar-label strong { font-size: 0.8rem; }
+
+  .gap-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r2);
+    padding: 18px;
+    transition: border-color 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .gap-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--red); border-radius: 3px 0 0 3px; }
+  .gap-card:hover { border-color: rgba(244,63,94,0.3); }
+  .gap-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+  .gap-card-title { font-family: var(--font-head); font-size: 0.9rem; font-weight: 700; color: var(--text); margin-bottom: 3px; }
+  .gap-card-subtitle { font-size: 0.72rem; color: var(--text3); }
+
+  .gap-chain { display: flex; align-items: stretch; margin: 14px 0; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; }
+  .gap-chain-node { flex: 1; padding: 10px 12px; min-width: 0; }
+  .gap-chain-node.weak { border-right: 1px solid var(--border); }
+  .gap-chain-lbl { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+  .gap-chain-name { font-family: var(--font-head); font-weight: 600; font-size: 0.82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .gap-chain-arrow { display: flex; align-items: center; padding: 0 10px; color: var(--text3); font-size: 1rem; flex-shrink: 0; }
+  .gap-chain-same { padding: 10px 14px; font-size: 0.72rem; color: var(--text3); display: flex; align-items: center; font-style: italic; }
+
+  .gap-recommendation { font-size: 0.78rem; color: var(--text2); line-height: 1.6; padding: 10px 12px; background: rgba(244,63,94,0.05); border: 1px solid rgba(244,63,94,0.12); border-radius: var(--r); margin-bottom: 14px; }
+  .gap-actions { display: flex; gap: 8px; }
+
+  .diag-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+  .diag-summary { display: flex; gap: 16px; padding: 12px 18px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r2); margin-bottom: 20px; align-items: center; flex-wrap: wrap; }
+  .diag-summary-item { display: flex; flex-direction: column; gap: 2px; }
+  .diag-summary-val { font-family: var(--font-head); font-size: 1.4rem; font-weight: 700; line-height: 1; }
+  .diag-summary-lbl { font-size: 0.68rem; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; }
+  .diag-divider { width: 1px; background: var(--border); align-self: stretch; margin: 0 4px; }
+  .diag-success { text-align: center; padding: 48px 24px; color: var(--green); }
+  .diag-success-icon { font-size: 2.5rem; margin-bottom: 12px; }
+  .diag-success-title { font-family: var(--font-head); font-size: 1.1rem; font-weight: 700; margin-bottom: 6px; }
+  .diag-success-sub { font-size: 0.8rem; color: var(--text3); }
+
+  .quiz-progress { display: flex; gap: 4px; margin-bottom: 20px; }
+  .quiz-pip { flex: 1; height: 3px; border-radius: 2px; background: var(--border2); }
+  .quiz-pip.correct { background: var(--green); }
+  .quiz-pip.wrong   { background: var(--red); }
+  .quiz-pip.current { background: var(--cyan); }
+  .quiz-question { font-size: 0.95rem; font-family: var(--font-head); font-weight: 600; line-height: 1.5; margin-bottom: 8px; color: var(--text); }
+  .quiz-answer { font-size: 0.78rem; color: var(--text3); padding: 8px 12px; background: var(--surface2); border-radius: var(--r); margin-bottom: 20px; line-height: 1.5; }
+  .quiz-answer strong { color: var(--cyan); }
+  .quiz-btns { display: flex; gap: 10px; }
+  .quiz-btn-correct { flex:1; padding:11px; background:rgba(16,217,122,0.1); border:1px solid rgba(16,217,122,0.3); border-radius:var(--r); color:var(--green); cursor:pointer; font-family:var(--font-mono); font-size:0.82rem; transition:all 0.15s; }
+  .quiz-btn-correct:hover { background: rgba(16,217,122,0.2); }
+  .quiz-btn-wrong { flex:1; padding:11px; background:rgba(244,63,94,0.08); border:1px solid rgba(244,63,94,0.25); border-radius:var(--r); color:var(--red); cursor:pointer; font-family:var(--font-mono); font-size:0.82rem; transition:all 0.15s; }
+  .quiz-btn-wrong:hover { background: rgba(244,63,94,0.15); }
+  .quiz-score-result { text-align:center; padding:16px; background:var(--surface2); border-radius:var(--r); margin-top:16px; }
+  .quiz-score-val { font-family:var(--font-head); font-size:2rem; font-weight:700; margin-bottom:4px; }
+  .quiz-score-lbl { font-size:0.72rem; color:var(--text3); text-transform:uppercase; letter-spacing:0.06em; }
+
+  @keyframes gapPulse {
+    0%,100% { opacity: 0.8; }
+    50%      { opacity: 0.2; }
+  }
+
+  /* Toast */
+  .toast-wrap {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 9999;
+  }
+  .toast {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: var(--r);
+    padding: 10px 16px;
+    font-size: 0.82rem;
+    color: var(--text);
+    animation: slideIn 0.2s ease;
+    max-width: 300px;
+  }
+  .toast.success { border-left: 3px solid var(--green); }
+  .toast.error   { border-left: 3px solid var(--red); }
+  .toast.info    { border-left: 3px solid var(--cyan); }
+
+  @keyframes slideIn {
+    from { transform: translateX(20px); opacity: 0; }
+    to   { transform: translateX(0);    opacity: 1; }
+  }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 0.15s ease;
+  }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: var(--r2);
+    padding: 28px;
+    width: 480px;
+    max-width: 90vw;
+    animation: scaleIn 0.15s ease;
+  }
+  .modal-title {
+    font-family: var(--font-head);
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 20px;
+    color: var(--text);
+  }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
+
+  @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes scaleIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+  /* Utility */
+  .flex { display: flex; }
+  .flex-col { display: flex; flex-direction: column; }
+  .items-center { align-items: center; }
+  .justify-between { justify-content: space-between; }
+  .gap-8 { gap: 8px; }
+  .gap-12 { gap: 12px; }
+  .gap-16 { gap: 16px; }
+  .mb-12 { margin-bottom: 12px; }
+  .mb-16 { margin-bottom: 16px; }
+  .mb-20 { margin-bottom: 20px; }
+  .mt-8  { margin-top: 8px; }
+  .mt-12 { margin-top: 12px; }
+  .text-dim { color: var(--text2); }
+  .text-xs { font-size: 0.72rem; }
+  .empty-state {
+    text-align: center;
+    padding: 40px;
+    color: var(--text3);
+    font-size: 0.82rem;
+  }
+
+  /* Available badge */
+  .avail-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    flex-shrink: 0;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50%      { opacity: 0.4; }
+  }
+
+  /* Prereq chips */
+  .prereq-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 0.68rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    color: var(--text3);
+  }
+  .prereq-chip button {
+    background: none; border: none; cursor: pointer;
+    color: var(--red); font-size: 0.8rem; line-height: 1;
+    padding: 0 1px;
+  }
+  .prereq-chip button:hover { color: var(--red); }
+  /* ── Knowledge Gap Detection UI ─────────────────────────────────────────── */
+
+  /* Score-based node ring colors (overrides D3 mastery colors for weak nodes) */
+  .score-strong { color: var(--green); }
+  .score-ok     { color: var(--amber); }
+  .score-weak   { color: var(--red);   }
+
+  /* Gap detection tab — summary cards */
+  .gap-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  /* Individual gap card */
+  .gap-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r2);
+    padding: 18px 20px;
+    border-left: 3px solid var(--red);
+    transition: border-color 0.2s;
+  }
+  .gap-card:hover { border-color: var(--red); border-left-color: var(--red); }
+  .gap-card-title {
+    font-family: var(--font-head);
+    font-size: 0.9rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .gap-arrow {
+    color: var(--red);
+    font-size: 0.75rem;
+    margin: 8px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .gap-root {
+    background: rgba(244,63,94,0.08);
+    border: 1px solid rgba(244,63,94,0.25);
+    border-radius: var(--r);
+    padding: 10px 14px;
+    margin-top: 10px;
+  }
+  .gap-root-label {
+    font-size: 0.65rem;
+    color: var(--red);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 4px;
+  }
+  .gap-root-name {
+    font-family: var(--font-head);
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .gap-recommendation {
+    font-size: 0.75rem;
+    color: var(--text2);
+    line-height: 1.5;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* Score bar */
+  .score-bar-wrap { margin: 6px 0; }
+  .score-bar-track {
+    height: 5px;
+    background: var(--border2);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 4px;
+  }
+  .score-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s ease;
+  }
+
+  /* All-scores table */
+  .scores-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 10px;
+  }
+  .score-chip {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .score-chip-name {
+    font-family: var(--font-head);
+    font-size: 0.82rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .score-chip-val {
+    font-size: 0.72rem;
+    font-weight: 500;
+  }
+
+  /* Quiz mini-panel inside inspector */
+  .quiz-panel {
+    border-top: 1px solid var(--border);
+    margin-top: 12px;
+    padding-top: 12px;
+  }
+  .quiz-q {
+    font-size: 0.78rem;
+    color: var(--text);
+    margin-bottom: 10px;
+    line-height: 1.5;
+  }
+  .quiz-answers { display: flex; flex-direction: column; gap: 6px; }
+  .quiz-ans-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: var(--r);
+    color: var(--text2);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    padding: 7px 10px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s;
+  }
+  .quiz-ans-btn:hover  { border-color: var(--cyan); color: var(--cyan); }
+  .quiz-ans-btn.correct { border-color: var(--green); color: var(--green); background: rgba(16,217,122,0.08); }
+  .quiz-ans-btn.wrong   { border-color: var(--red);   color: var(--red);   background: rgba(244,63,94,0.08); }
+
+  /* Diagnose tab empty state */
+  .gap-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text3);
+  }
+  .gap-empty-icon { font-size: 2.5rem; margin-bottom: 12px; }
+  .gap-empty-title { font-family: var(--font-head); font-size: 1.1rem; color: var(--text2); margin-bottom: 6px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useCallback, useRef, useMemo } = React;
+
+const API = 'http://localhost:8000';
+
+const MASTERY_LABELS = ['Not Started', 'Learning', 'Practicing', 'Mastered'];
+const MASTERY_SHORT  = ['0', '1', '2', '✓'];
+const MASTERY_CLS    = ['m-0', 'm-1', 'm-2', 'm-3'];
+
+// ── API helpers ───────────────────────────────────────────────────────────────
+
+async function api(path, opts = {}) {
+  const res = await fetch(API + path, {
+    headers: { 'Content-Type': 'application/json' },
+    ...opts,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Request failed');
+  }
+  return res.json();
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────────────
+
+function useToast() {
+  const [toasts, setToasts] = useState([]);
+  const push = useCallback((msg, type = 'info') => {
+    const id = Date.now();
+    setToasts(t => [...t, { id, msg, type }]);
+    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3000);
+  }, []);
+  return { toasts, push };
+}
+
+function Toasts({ toasts }) {
+  return (
+    <div className="toast-wrap">
+      {toasts.map(t => (
+        <div key={t.id} className={`toast ${t.type}`}>{t.msg}</div>
+      ))}
+    </div>
+  );
+}
+
+// ── Icons (inline SVG) ─────────────────────────────────────────────────────────
+
+const icons = {
+  dashboard: <svg className="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>,
+  graph:     <svg className="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="8" cy="3" r="2"/><circle cx="3" cy="12" r="2"/><circle cx="13" cy="12" r="2"/><line x1="6.6" y1="4.7" x2="4.4" y2="10.3"/><line x1="9.4" y1="4.7" x2="11.6" y2="10.3"/><line x1="5" y1="12" x2="11" y2="12"/></svg>,
+  list:      <svg className="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><line x1="5" y1="4" x2="14" y2="4"/><line x1="5" y1="8" x2="14" y2="8"/><line x1="5" y1="12" x2="14" y2="12"/><circle cx="2" cy="4" r="1" fill="currentColor"/><circle cx="2" cy="8" r="1" fill="currentColor"/><circle cx="2" cy="12" r="1" fill="currentColor"/></svg>,
+  plus:      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" style={{width:14,height:14}}><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>,
+  plan:      <svg className="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="2" width="12" height="12" rx="1"/><line x1="5" y1="6" x2="11" y2="6"/><line x1="5" y1="9" x2="9" y2="9"/></svg>,
+};
+
+// ── Difficulty dots ────────────────────────────────────────────────────────────
+
+function DiffDots({ level }) {
+  return (
+    <div className="diff-dots">
+      {[1,2,3,4,5].map(i => (
+        <div key={i} className={`dot ${i <= level ? 'dot-on' : 'dot-off'}`} />
+      ))}
+    </div>
+  );
+}
+
+// ── Mastery buttons ────────────────────────────────────────────────────────────
+
+function MasteryBtns({ conceptId, current, onChange }) {
+  return (
+    <div className="mastery-btns">
+      {[0,1,2,3].map(level => (
+        <button
+          key={level}
+          className={`m-btn ${current === level ? `active-${level}` : ''}`}
+          title={MASTERY_LABELS[level]}
+          onClick={() => onChange(conceptId, level)}
+        >
+          {MASTERY_SHORT[level]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ── Add Concept Modal ──────────────────────────────────────────────────────────
+
+function AddConceptModal({ onClose, onAdd, push }) {
+  const [form, setForm] = useState({ name: '', description: '', difficulty: 2 });
+  const [saving, setSaving] = useState(false);
+
+  async function submit() {
+    if (!form.name.trim()) return;
+    setSaving(true);
+    try {
+      const c = await api('/concepts', {
+        method: 'POST',
+        body: JSON.stringify(form),
+      });
+      push(`Added "${c.name}"`, 'success');
+      onAdd(c);
+      onClose();
+    } catch(e) {
+      push(e.message, 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal">
+        <div className="modal-title">New Concept</div>
+        <div className="stack">
+          <div className="form-group">
+            <label className="form-label">Name</label>
+            <input className="form-input" value={form.name}
+              onChange={e => setForm({...form, name: e.target.value})}
+              placeholder="e.g. Backpropagation"
+              onKeyDown={e => e.key === 'Enter' && submit()}
+              autoFocus />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Description</label>
+            <textarea className="form-textarea" value={form.description}
+              onChange={e => setForm({...form, description: e.target.value})}
+              placeholder="Brief description..." />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Difficulty (1–5)</label>
+            <div className="flex items-center gap-12">
+              <input type="range" min="1" max="5" value={form.difficulty}
+                onChange={e => setForm({...form, difficulty: +e.target.value})}
+                style={{ flex: 1, accentColor: 'var(--amber)' }} />
+              <DiffDots level={form.difficulty} />
+            </div>
+          </div>
+        </div>
+        <div className="modal-actions">
+          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={submit} disabled={saving}>
+            {saving ? '...' : 'Add Concept'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Link Prerequisite Modal ────────────────────────────────────────────────────
+
+function LinkPrereqModal({ concepts, onClose, onLink, push }) {
+  const [conceptId, setConceptId] = useState('');
+  const [prereqId,  setPrereqId]  = useState('');
+  const [saving, setSaving] = useState(false);
+
+  async function submit() {
+    if (!conceptId || !prereqId || conceptId === prereqId) return;
+    setSaving(true);
+    try {
+      await api('/prerequisites', {
+        method: 'POST',
+        body: JSON.stringify({ concept_id: +conceptId, prerequisite_id: +prereqId }),
+      });
+      const cn = concepts.find(c => c.id === +conceptId)?.name;
+      const pn = concepts.find(c => c.id === +prereqId)?.name;
+      push(`Linked: ${pn} → ${cn}`, 'success');
+      onLink();
+      onClose();
+    } catch(e) {
+      push(e.message, 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal">
+        <div className="modal-title">Link Prerequisite</div>
+        <div className="stack">
+          <div className="form-group">
+            <label className="form-label">Concept (requires a prerequisite)</label>
+            <select className="form-select" value={conceptId}
+              onChange={e => setConceptId(e.target.value)}>
+              <option value="">Select concept...</option>
+              {concepts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Prerequisite (must be mastered first)</label>
+            <select className="form-select" value={prereqId}
+              onChange={e => setPrereqId(e.target.value)}>
+              <option value="">Select prerequisite...</option>
+              {concepts.filter(c => String(c.id) !== conceptId).map(c =>
+                <option key={c.id} value={c.id}>{c.name}</option>
+              )}
+            </select>
+          </div>
+          {conceptId && prereqId && (
+            <div className="card" style={{padding:'10px 14px',background:'var(--bg)'}}>
+              <span style={{color:'var(--text3)',fontSize:'0.78rem'}}>
+                <span style={{color:'var(--text)'}}>{concepts.find(c=>c.id===+prereqId)?.name}</span>
+                {' '}<span style={{color:'var(--cyan)'}}>→</span>{' '}
+                <span style={{color:'var(--text)'}}>{concepts.find(c=>c.id===+conceptId)?.name}</span>
+              </span>
+            </div>
+          )}
+        </div>
+        <div className="modal-actions">
+          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={submit}
+            disabled={saving || !conceptId || !prereqId || conceptId === prereqId}>
+            {saving ? '...' : 'Link'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Dashboard ──────────────────────────────────────────────────────────────────
+
+function Dashboard({ concepts, studyPlan, stats, onMastery, loading, diagnosis, onGoToDiagnose }) {
+  if (loading) return <div className="empty-state">Loading...</div>;
+
+  const gaps = diagnosis?.gaps ?? [];
+
+  return (
+    <div className="stack">
+      {/* Gap alert banner */}
+      {gaps.length > 0 && (
+        <div className="gap-alert" onClick={onGoToDiagnose}>
+          <div className="gap-alert-icon">⚠</div>
+          <div className="gap-alert-body">
+            <div className="gap-alert-title">{gaps.length} knowledge gap{gaps.length !== 1 ? 's' : ''} detected</div>
+            <div className="gap-alert-sub">
+              Root cause: <strong style={{color:'var(--text)'}}>{gaps[0].root_gap_name}</strong>
+              {gaps.length > 1 && ` and ${gaps.length - 1} more`}
+              {' '}· Study plan has been adjusted to fix root gaps first
+            </div>
+          </div>
+          <div className="gap-alert-cta">View Diagnosis →</div>
+        </div>
+      )}
+      {/* Stats row */}
+      <div className="grid-3">
+        <div className="stat-box">
+          <div className="stat-val stat-cyan">{stats.total_concepts ?? '—'}</div>
+          <div className="stat-lbl">Total Concepts</div>
+        </div>
+        <div className="stat-box">
+          <div className="stat-val stat-green">{stats.mastered ?? '—'}</div>
+          <div className="stat-lbl">Mastered</div>
+          <div className="prog-bar">
+            <div className="prog-fill" style={{width: `${stats.completion_pct ?? 0}%`}} />
+          </div>
+        </div>
+        <div className="stat-box">
+          <div className="stat-val stat-amber">{stats.available_to_study ?? '—'}</div>
+          <div className="stat-lbl">Available Now</div>
+        </div>
+      </div>
+
+      {/* Study plan */}
+      <div className="card">
+        <div className="card-title">
+          Today's Study Plan
+          {studyPlan && (
+            <span style={{marginLeft:'auto',fontSize:'0.72rem',color:'var(--amber)',fontWeight:400}}>
+              ~{studyPlan.total_minutes} min total
+            </span>
+          )}
+        </div>
+        {(!studyPlan || studyPlan.tasks.length === 0) ? (
+          <div className="empty-state">
+            🎉 All available concepts are mastered!<br/>
+            <span style={{fontSize:'0.72rem',marginTop:6,display:'block'}}>Add more concepts or link prerequisites to continue.</span>
+          </div>
+        ) : (
+          <div className="stack">
+            {studyPlan.tasks.map((task, i) => (
+              <div key={task.concept_id} className="task-card">
+                <div className="task-num">{i + 1}</div>
+                <div className="task-body">
+                  <div className="task-name">{task.name}</div>
+                  <div className="task-action">{task.action}</div>
+                  <div className="task-meta">
+                    <span className="task-dur">⏱ {task.duration_minutes} min</span>
+                    <span className={`mastery ${MASTERY_CLS[task.mastery_level]}`}>
+                      {MASTERY_LABELS[task.mastery_level]}
+                    </span>
+                    <DiffDots level={task.difficulty} />
+                  </div>
+                </div>
+                <MasteryBtns
+                  conceptId={task.concept_id}
+                  current={task.mastery_level}
+                  onChange={onMastery}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* In-progress concepts */}
+      <div className="card">
+        <div className="card-title">In Progress</div>
+        {concepts.filter(c => c.mastery_level > 0 && c.mastery_level < 3).length === 0 ? (
+          <div className="empty-state" style={{padding:'20px'}}>No concepts in progress.</div>
+        ) : (
+          <div className="stack">
+            {concepts.filter(c => c.mastery_level > 0 && c.mastery_level < 3).map(c => (
+              <div key={c.id} className="concept-row">
+                <div style={{flex:1}}>
+                  <div className="concept-name">{c.name}</div>
+                </div>
+                <span className={`mastery ${MASTERY_CLS[c.mastery_level]}`}>
+                  {MASTERY_LABELS[c.mastery_level]}
+                </span>
+                <MasteryBtns conceptId={c.id} current={c.mastery_level} onChange={onMastery} />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Concepts List ─────────────────────────────────────────────────────────────
+
+function ConceptsList({ concepts, onMastery, onDelete, onAddPrereq, onRemovePrereq, onAdd, push }) {
+  const [modal, setModal] = useState(false);
+  const [search, setSearch] = useState('');
+
+  const filtered = concepts.filter(c =>
+    c.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div className="stack">
+      <div className="flex items-center justify-between gap-12 mb-12">
+        <input
+          className="form-input"
+          style={{maxWidth: 280}}
+          placeholder="Search concepts..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+        <button className="btn btn-primary" onClick={() => setModal(true)}>
+          {icons.plus} Add Concept
+        </button>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="empty-state">No concepts yet. Add one to get started!</div>
+      ) : (
+        <div className="stack">
+          {filtered.map(c => {
+            const prereqs = c.prerequisites.map(pid => concepts.find(x => x.id === pid)).filter(Boolean);
+            const isAvailable = c.prerequisites.length === 0 ||
+              c.prerequisites.every(pid => {
+                const p = concepts.find(x => x.id === pid);
+                return p && p.mastery_level === 3;
+              });
+
+            return (
+              <div key={c.id} className="card" style={{padding:'16px 18px'}}>
+                <div className="flex items-center gap-12 mb-12">
+                  {c.mastery_level < 3 && isAvailable && <div className="avail-dot" title="Available to study" />}
+                  <div style={{flex:1}}>
+                    <div className="flex items-center gap-8">
+                      <span style={{fontFamily:'var(--font-head)',fontWeight:600,fontSize:'0.95rem'}}>{c.name}</span>
+                      <span className={`mastery ${MASTERY_CLS[c.mastery_level]}`}>{MASTERY_LABELS[c.mastery_level]}</span>
+                    </div>
+                    {c.description && <div className="concept-desc">{c.description}</div>}
+                  </div>
+                  <DiffDots level={c.difficulty} />
+                </div>
+
+                {prereqs.length > 0 && (
+                  <div className="flex gap-8 mb-12" style={{flexWrap:'wrap'}}>
+                    <span className="text-xs text-dim" style={{paddingTop:2}}>requires:</span>
+                    {prereqs.map(p => (
+                      <span key={p.id} className="prereq-chip">
+                        {p.name}
+                        <button title="Remove" onClick={() => onRemovePrereq(c.id, p.id)}>×</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between">
+                  <MasteryBtns conceptId={c.id} current={c.mastery_level} onChange={onMastery} />
+                  <div className="flex gap-8">
+                    <button className="btn btn-ghost btn-sm" onClick={() => onAddPrereq(c)}>
+                      + Prereq
+                    </button>
+                    <button className="btn btn-danger btn-sm" onClick={() => onDelete(c.id, c.name)}>
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {modal && <AddConceptModal onClose={() => setModal(false)} onAdd={onAdd} push={push} />}
+    </div>
+  );
+}
+
+// ── Graph View (D3 Force Simulation) ──────────────────────────────────────────
+
+const NODE_COLORS   = ['#4a5a70', '#3b82f6', '#f59e0b', '#10d97a'];
+const NODE_COLORS_DIM = ['#2a3340', '#1e3a6e', '#78450a', '#064e2e'];
+const NODE_R = 28;
+
+function GraphView({ concepts, onMastery }) {
+  const svgRef      = useRef(null);
+  const wrapRef     = useRef(null);
+  const simRef      = useRef(null);
+  const zoomRef     = useRef(null);
+  const [selected,  setSelected]  = useState(null);
+  const [search,    setSearch]    = useState('');
+  const [filter,    setFilter]    = useState('all'); // all | available | mastered
+  const [simTick,   setSimTick]   = useState(0);     // triggers re-render on tick
+
+  const conceptMap = useMemo(() => {
+    const m = {};
+    concepts.forEach(c => m[c.id] = c);
+    return m;
+  }, [concepts]);
+
+  // Compute which concepts are available (prereqs all mastered)
+  const availableIds = useMemo(() => {
+    const mastered = new Set(concepts.filter(c => c.mastery_level === 3).map(c => c.id));
+    return new Set(concepts
+      .filter(c => c.mastery_level < 3 && c.prerequisites.every(p => mastered.has(p)))
+      .map(c => c.id));
+  }, [concepts]);
+
+  // ── Build D3 simulation ────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!concepts.length || !svgRef.current) return;
+
+    const svg    = d3.select(svgRef.current);
+    const width  = svgRef.current.clientWidth  || 900;
+    const height = svgRef.current.clientHeight || 580;
+
+    // Clear old content
+    svg.selectAll('*').remove();
+
+    // ── Defs: arrowhead markers per mastery color ──────────────────────────
+    const defs = svg.append('defs');
+    NODE_COLORS.forEach((col, i) => {
+      defs.append('marker')
+        .attr('id', `arrow-${i}`)
+        .attr('viewBox', '0 -5 10 10')
+        .attr('refX', NODE_R + 10)
+        .attr('refY', 0)
+        .attr('markerWidth', 6)
+        .attr('markerHeight', 6)
+        .attr('orient', 'auto')
+        .append('path')
+          .attr('d', 'M0,-5L10,0L0,5')
+          .attr('fill', col)
+          .attr('opacity', 0.6);
+    });
+    // Default arrow
+    defs.append('marker')
+      .attr('id', 'arrow-default')
+      .attr('viewBox', '0 -5 10 10')
+      .attr('refX', NODE_R + 10)
+      .attr('refY', 0)
+      .attr('markerWidth', 6)
+      .attr('markerHeight', 6)
+      .attr('orient', 'auto')
+      .append('path')
+        .attr('d', 'M0,-5L10,0L0,5')
+        .attr('fill', '#2a3340');
+
+    // Glow filter
+    const glow = defs.append('filter').attr('id', 'glow');
+    glow.append('feGaussianBlur').attr('stdDeviation', '4').attr('result', 'coloredBlur');
+    const merge = glow.append('feMerge');
+    merge.append('feMergeNode').attr('in', 'coloredBlur');
+    merge.append('feMergeNode').attr('in', 'SourceGraphic');
+
+    // ── Data ──────────────────────────────────────────────────────────────
+    const nodes = concepts.map(c => ({
+      id:       c.id,
+      name:     c.name,
+      mastery:  c.mastery_level,
+      difficulty: c.difficulty,
+      prereqs:  c.prerequisites,
+    }));
+
+    const links = [];
+    concepts.forEach(c => {
+      c.prerequisites.forEach(pid => {
+        if (conceptMap[pid]) {
+          links.push({ source: pid, target: c.id });
+        }
+      });
+    });
+
+    // ── Layered initial positions (Sugiyama-style x) ──────────────────────
+    const inDeg = {};
+    nodes.forEach(n => inDeg[n.id] = 0);
+    links.forEach(l => inDeg[l.target]++);
+    const layers = {};
+    const visited = new Set();
+    const bfsQ = nodes.filter(n => inDeg[n.id] === 0).map(n => ({ id: n.id, layer: 0 }));
+    while (bfsQ.length) {
+      const { id, layer } = bfsQ.shift();
+      if (visited.has(id)) continue;
+      visited.add(id);
+      layers[id] = layer;
+      nodes.filter(n => n.prereqs.includes(id)).forEach(n => bfsQ.push({ id: n.id, layer: layer + 1 }));
+    }
+    nodes.forEach(n => { if (layers[n.id] === undefined) layers[n.id] = 0; });
+    const maxLayer = Math.max(...Object.values(layers), 0);
+    const layerCounts = {};
+    nodes.forEach(n => { layerCounts[layers[n.id]] = (layerCounts[layers[n.id]] || 0) + 1; });
+    const layerIdx = {};
+    nodes.forEach(n => {
+      const l = layers[n.id];
+      layerIdx[n.id] = layerIdx[n.id] !== undefined ? layerIdx[n.id] : (layerIdx[`_${l}`] = (layerIdx[`_${l}`] || 0));
+      layerIdx[`_${l}`]++;
+    });
+
+    // Set initial x by layer, y by position in layer
+    const layerPos = {};
+    nodes.forEach(n => {
+      const l = layers[n.id];
+      if (!layerPos[l]) layerPos[l] = 0;
+      n.x = 100 + (l / Math.max(maxLayer, 1)) * (width - 200);
+      n.y = 80 + (layerPos[l] / Math.max(layerCounts[l] - 1, 1)) * (height - 160);
+      if (layerCounts[l] === 1) n.y = height / 2;
+      layerPos[l]++;
+    });
+
+    // ── Main SVG group (zoom target) ──────────────────────────────────────
+    const g = svg.append('g').attr('class', 'zoom-group');
+
+    // ── Zoom behavior ──────────────────────────────────────────────────────
+    const zoom = d3.zoom()
+      .scaleExtent([0.2, 3])
+      .on('zoom', (event) => g.attr('transform', event.transform));
+    svg.call(zoom);
+    zoomRef.current = { zoom, svg };
+
+    // ── Link elements ──────────────────────────────────────────────────────
+    const linkG = g.append('g').attr('class', 'links');
+    const link = linkG.selectAll('path')
+      .data(links)
+      .join('path')
+        .attr('class', 'd3-link')
+        .attr('stroke', '#2a3340')
+        .attr('stroke-width', 1.8)
+        .attr('marker-end', 'url(#arrow-default)')
+        .attr('opacity', 0.7);
+
+    // ── Node elements ──────────────────────────────────────────────────────
+    const nodeG = g.append('g').attr('class', 'nodes');
+    const node = nodeG.selectAll('g')
+      .data(nodes, d => d.id)
+      .join('g')
+        .attr('class', 'd3-node')
+        .call(d3.drag()
+          .on('start', (event, d) => {
+            if (!event.active) sim.alphaTarget(0.3).restart();
+            d.fx = d.x; d.fy = d.y;
+          })
+          .on('drag', (event, d) => {
+            d.fx = event.x; d.fy = event.y;
+          })
+          .on('end', (event, d) => {
+            if (!event.active) sim.alphaTarget(0);
+            d.fx = null; d.fy = null;
+          })
+        )
+        .on('click', (event, d) => {
+          event.stopPropagation();
+          setSelected(prev => prev === d.id ? null : d.id);
+        });
+
+    // Outer glow ring (for available nodes)
+    node.append('circle')
+      .attr('r', NODE_R + 6)
+      .attr('fill', 'none')
+      .attr('stroke', d => NODE_COLORS[d.mastery])
+      .attr('stroke-width', 1)
+      .attr('opacity', d => availableIds.has(d.id) ? 0.35 : 0)
+      .attr('class', 'glow-ring');
+
+    // Main circle
+    node.append('circle')
+      .attr('r', NODE_R)
+      .attr('fill', d => `${NODE_COLORS[d.mastery]}1a`)
+      .attr('stroke', d => NODE_COLORS[d.mastery])
+      .attr('stroke-width', 2)
+      .attr('class', 'main-circle');
+
+    // Mastery arc (progress ring)
+    node.append('path')
+      .attr('class', 'mastery-arc')
+      .attr('fill', 'none')
+      .attr('stroke', d => NODE_COLORS[d.mastery])
+      .attr('stroke-width', 3)
+      .attr('stroke-linecap', 'round')
+      .attr('d', d => {
+        const pct = d.mastery / 3;
+        if (pct === 0) return '';
+        if (pct >= 1) {
+          // Full circle
+          return `M 0,${-NODE_R} A ${NODE_R},${NODE_R} 0 1,1 0.001,${-NODE_R}`;
+        }
+        const angle = pct * 2 * Math.PI - Math.PI / 2;
+        const x = NODE_R * Math.cos(angle);
+        const y = NODE_R * Math.sin(angle);
+        const large = pct > 0.5 ? 1 : 0;
+        return `M 0,${-NODE_R} A ${NODE_R},${NODE_R} 0 ${large},1 ${x},${y}`;
+      })
+      .attr('opacity', 0.9);
+
+    // Mastery icon text
+    node.append('text')
+      .attr('text-anchor', 'middle')
+      .attr('dominant-baseline', 'central')
+      .attr('y', -2)
+      .attr('font-size', 13)
+      .attr('fill', d => NODE_COLORS[d.mastery])
+      .attr('font-family', 'JetBrains Mono, monospace')
+      .text(d => ['○','◐','◑','●'][d.mastery]);
+
+    // Difficulty dots below icon
+    node.each(function(d) {
+      const g = d3.select(this);
+      for (let i = 0; i < 5; i++) {
+        g.append('circle')
+          .attr('r', 2.2)
+          .attr('cx', (i - 2) * 7)
+          .attr('cy', 14)
+          .attr('fill', i < d.difficulty ? NODE_COLORS[d.mastery] : '#2a3340')
+          .attr('opacity', i < d.difficulty ? 0.8 : 0.4);
+      }
+    });
+
+    // Label below node
+    node.append('text')
+      .attr('class', 'd3-label')
+      .attr('text-anchor', 'middle')
+      .attr('y', NODE_R + 16)
+      .attr('font-size', 10)
+      .attr('font-weight', '500')
+      .attr('fill', '#7a8fa8')
+      .text(d => d.name.length > 20 ? d.name.slice(0, 18) + '…' : d.name);
+
+    // Click away to deselect
+    svg.on('click', () => setSelected(null));
+
+    // ── Force simulation ───────────────────────────────────────────────────
+    const sim = d3.forceSimulation(nodes)
+      .force('link', d3.forceLink(links)
+        .id(d => d.id)
+        .distance(160)
+        .strength(0.6))
+      .force('charge', d3.forceManyBody().strength(-500))
+      .force('center', d3.forceCenter(width / 2, height / 2))
+      .force('collision', d3.forceCollide(NODE_R + 30))
+      .force('x', d3.forceX(d => 100 + (layers[d.id] / Math.max(maxLayer, 1)) * (width - 200)).strength(0.35))
+      .force('y', d3.forceY(height / 2).strength(0.05))
+      .on('tick', () => {
+        // Update link paths (curved)
+        link.attr('d', d => {
+          const sx = d.source.x, sy = d.source.y;
+          const tx = d.target.x, ty = d.target.y;
+          const dx = tx - sx, dy = ty - sy;
+          const dr = Math.sqrt(dx*dx + dy*dy) * 0.5;
+          return `M${sx},${sy} A${dr},${dr} 0 0,1 ${tx},${ty}`;
+        });
+        // Update node positions
+        node.attr('transform', d => `translate(${d.x},${d.y})`);
+        setSimTick(t => t + 1);
+      });
+
+    simRef.current = sim;
+    return () => { sim.stop(); svg.selectAll('*').remove(); };
+  }, [concepts]);
+
+  // ── Highlight connected nodes on selection ─────────────────────────────────
+  useEffect(() => {
+    if (!svgRef.current) return;
+    const svg = d3.select(svgRef.current);
+
+    if (!selected) {
+      svg.selectAll('.d3-node').classed('dimmed', false).classed('highlighted', false);
+      svg.selectAll('.d3-link').classed('dimmed', false).classed('highlighted', false);
+      svg.selectAll('.d3-link').attr('stroke', '#2a3340').attr('stroke-width', 1.8).attr('opacity', 0.7)
+        .attr('marker-end', 'url(#arrow-default)');
+      return;
+    }
+
+    const concept = conceptMap[selected];
+    if (!concept) return;
+
+    // Find connected IDs (direct prereqs + direct dependents)
+    const connected = new Set([selected]);
+    concept.prerequisites.forEach(p => connected.add(p));
+    concepts.forEach(c => { if (c.prerequisites.includes(selected)) connected.add(c.id); });
+
+    svg.selectAll('.d3-node').each(function(d) {
+      const el = d3.select(this);
+      if (connected.has(d.id)) {
+        el.classed('dimmed', false).classed('highlighted', true).raise();
+      } else {
+        el.classed('dimmed', true).classed('highlighted', false);
+      }
+    });
+
+    svg.selectAll('.d3-link').each(function(d) {
+      const srcId = d.source.id ?? d.source;
+      const tgtId = d.target.id ?? d.target;
+      const isConnected = (srcId === selected || tgtId === selected);
+      d3.select(this)
+        .classed('dimmed', !isConnected)
+        .classed('highlighted', isConnected)
+        .attr('stroke', isConnected ? NODE_COLORS[conceptMap[srcId]?.mastery_level ?? 0] : '#2a3340')
+        .attr('stroke-width', isConnected ? 2.5 : 1.8)
+        .attr('opacity', isConnected ? 1 : 0.06)
+        .attr('marker-end', isConnected ? `url(#arrow-${conceptMap[srcId]?.mastery_level ?? 0})` : 'url(#arrow-default)');
+    });
+  }, [selected, simTick, concepts]);
+
+  // ── Search highlight ───────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!svgRef.current || selected) return;
+    if (!search.trim()) {
+      d3.select(svgRef.current).selectAll('.d3-node').classed('dimmed', false);
+      return;
+    }
+    const q = search.toLowerCase();
+    d3.select(svgRef.current).selectAll('.d3-node').each(function(d) {
+      const match = d.name.toLowerCase().includes(q);
+      d3.select(this).classed('dimmed', !match);
+    });
+  }, [search, selected]);
+
+  // ── Filter ─────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!svgRef.current || selected || search.trim()) return;
+    d3.select(svgRef.current).selectAll('.d3-node').each(function(d) {
+      let show = true;
+      if (filter === 'available') show = availableIds.has(d.id);
+      if (filter === 'mastered')  show = d.mastery === 3;
+      d3.select(this).classed('dimmed', !show);
+    });
+  }, [filter, selected, search, availableIds]);
+
+  // ── Zoom controls ──────────────────────────────────────────────────────────
+  function zoomIn()  { zoomRef.current?.svg.transition().call(zoomRef.current.zoom.scaleBy, 1.4); }
+  function zoomOut() { zoomRef.current?.svg.transition().call(zoomRef.current.zoom.scaleBy, 0.7); }
+  function zoomFit() {
+    zoomRef.current?.svg.transition().call(zoomRef.current.zoom.transform, d3.zoomIdentity.translate(0, 0).scale(1));
+  }
+
+  const selConcept = selected ? conceptMap[selected] : null;
+  const isAvailable = selected ? availableIds.has(selected) : false;
+
+  if (!concepts.length) return (
+    <div className="empty-state">
+      No concepts yet.<br/>
+      <span style={{fontSize:'0.72rem',marginTop:6,display:'block'}}>Add concepts and link prerequisites to build your graph.</span>
+    </div>
+  );
+
+  return (
+    <div>
+      {/* Toolbar */}
+      <div className="graph-toolbar">
+        <input
+          className="graph-search"
+          placeholder="🔍  Search nodes..."
+          value={search}
+          onChange={e => { setSearch(e.target.value); setSelected(null); }}
+        />
+        <button className={`graph-btn ${filter==='all'      ? 'active':''}`} onClick={() => setFilter('all')}>All</button>
+        <button className={`graph-btn ${filter==='available'? 'active':''}`} onClick={() => setFilter('available')}>
+          ● Available ({availableIds.size})
+        </button>
+        <button className={`graph-btn ${filter==='mastered' ? 'active':''}`} onClick={() => setFilter('mastered')}>
+          ✓ Mastered
+        </button>
+        <button className="graph-btn" onClick={() => { if (simRef.current) simRef.current.alpha(0.6).restart(); }}>
+          ↺ Relayout
+        </button>
+        <span style={{marginLeft:'auto',fontSize:'0.7rem',color:'var(--text3)'}}>
+          Drag nodes · Scroll to zoom · Click to inspect
+        </span>
+      </div>
+
+      {/* Graph canvas */}
+      <div className="graph-wrap" ref={wrapRef} style={{height: 580}}>
+        <svg ref={svgRef} style={{width:'100%', height:'100%'}} />
+
+        {/* Inspector panel */}
+        {selConcept && (
+          <div className="graph-inspector">
+            <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:8}}>
+              <div style={{flex:1}}>
+                {isAvailable && (
+                  <div style={{fontSize:'0.65rem',color:'var(--green)',marginBottom:4,display:'flex',alignItems:'center',gap:4}}>
+                    <div className="avail-dot" style={{width:6,height:6}} /> Ready to study
+                  </div>
+                )}
+                <div className="inspector-name">{selConcept.name}</div>
+              </div>
+              <button onClick={() => setSelected(null)}
+                style={{background:'none',border:'none',color:'var(--text3)',cursor:'pointer',fontSize:'1rem',padding:'0 2px',lineHeight:1}}>×</button>
+            </div>
+
+            {selConcept.description && (
+              <div className="inspector-desc">{selConcept.description}</div>
+            )}
+
+            <div className="inspector-row">
+              <span className="inspector-lbl">Mastery</span>
+              <span className={`mastery ${MASTERY_CLS[selConcept.mastery_level]}`}>
+                {MASTERY_LABELS[selConcept.mastery_level]}
+              </span>
+            </div>
+            <div className="mastery-track">
+              {[0,1,2,3].map(i => (
+                <div key={i} className={`mastery-pip ${i <= selConcept.mastery_level ? `filled-${selConcept.mastery_level}` : ''}`} />
+              ))}
+            </div>
+
+            <div className="inspector-row" style={{marginTop:10}}>
+              <span className="inspector-lbl">Difficulty</span>
+              <DiffDots level={selConcept.difficulty} />
+            </div>
+
+            {selConcept.prerequisites.length > 0 && (
+              <div className="inspector-section">
+                <div className="inspector-lbl" style={{marginBottom:6}}>Prerequisites</div>
+                {selConcept.prerequisites.map(pid => {
+                  const p = conceptMap[pid];
+                  return p ? (
+                    <div key={pid} className="inspector-prereq"
+                      style={{cursor:'pointer'}} onClick={() => setSelected(pid)}>
+                      <div className="inspector-prereq-dot" style={{background: NODE_COLORS[p.mastery_level]}} />
+                      <span>{p.name}</span>
+                      <span className={`mastery ${MASTERY_CLS[p.mastery_level]}`} style={{marginLeft:'auto',fontSize:'0.62rem'}}>
+                        {MASTERY_LABELS[p.mastery_level]}
+                      </span>
+                    </div>
+                  ) : null;
+                })}
+              </div>
+            )}
+
+            {/* Dependents */}
+            {(() => {
+              const deps = concepts.filter(c => c.prerequisites.includes(selected));
+              if (!deps.length) return null;
+              return (
+                <div className="inspector-section">
+                  <div className="inspector-lbl" style={{marginBottom:6}}>Unlocks</div>
+                  {deps.map(d => (
+                    <div key={d.id} className="inspector-prereq"
+                      style={{cursor:'pointer'}} onClick={() => setSelected(d.id)}>
+                      <div className="inspector-prereq-dot" style={{background: NODE_COLORS[d.mastery_level]}} />
+                      <span>{d.name}</span>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+
+            <div className="inspector-section">
+              <div className="inspector-lbl" style={{marginBottom:8}}>Update mastery</div>
+              <MasteryBtns conceptId={selConcept.id} current={selConcept.mastery_level} onChange={onMastery} />
+            </div>
+          </div>
+        )}
+
+        {/* Legend */}
+        <div className="graph-legend">
+          {['Not Started','Learning','Practicing','Mastered'].map((l, i) => (
+            <div key={i} className="legend-item">
+              <div className="legend-dot" style={{background: NODE_COLORS[i]}} />
+              {l}
+            </div>
+          ))}
+        </div>
+
+        {/* Zoom controls */}
+        <div className="zoom-controls">
+          <button className="zoom-btn" onClick={zoomIn}  title="Zoom in">+</button>
+          <button className="zoom-btn" onClick={zoomOut} title="Zoom out">−</button>
+          <button className="zoom-btn" onClick={zoomFit} title="Reset" style={{fontSize:'0.7rem'}}>⊡</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── ScoreBar ───────────────────────────────────────────────────────────────────
+
+function ScoreBar({ score, label }) {
+  const pct = Math.round(score * 100);
+  const color = score >= 0.8 ? 'var(--green)'
+              : score >= 0.6 ? 'var(--amber)'
+              : score > 0   ? 'var(--red)'
+              : 'var(--text3)';
+  return (
+    <div className="score-bar-wrap">
+      {label && (
+        <div className="score-bar-label">
+          <span>{label}</span>
+          <strong style={{color}}>{pct}%</strong>
+        </div>
+      )}
+      <div className="score-bar-track">
+        <div className="score-bar-fill" style={{width:`${pct}%`, background: color}} />
+      </div>
+    </div>
+  );
+}
+
+// ── QuizModal ──────────────────────────────────────────────────────────────────
+
+function QuizModal({ concept, onClose, onDone, push }) {
+  const [questions, setQuestions] = useState([]);
+  const [idx,       setIdx]       = useState(0);
+  const [results,   setResults]   = useState([]); // true/false per question
+  const [revealed,  setRevealed]  = useState(false);
+  const [finalScore, setFinalScore] = useState(null);
+  const [loading,   setLoading]   = useState(true);
+
+  useEffect(() => {
+    api(`/questions?concept_id=${concept.id}`)
+      .then(qs => { setQuestions(qs); setLoading(false); })
+      .catch(() => { push('Failed to load questions', 'error'); onClose(); });
+  }, [concept.id]);
+
+  async function submitAnswer(isCorrect) {
+    const q = questions[idx];
+    try {
+      const res = await api('/answers', {
+        method: 'POST',
+        body: JSON.stringify({ user_id: 'default', question_id: q.id, is_correct: isCorrect }),
+      });
+      const newResults = [...results, isCorrect];
+      setResults(newResults);
+      if (idx + 1 >= questions.length) {
+        setFinalScore(res.mastery_score);
+      } else {
+        setIdx(idx + 1);
+        setRevealed(false);
+      }
+    } catch(e) { push(e.message, 'error'); }
+  }
+
+  if (loading) return (
+    <div className="modal-overlay">
+      <div className="modal"><div style={{textAlign:'center',color:'var(--text3)'}}>Loading questions…</div></div>
+    </div>
+  );
+
+  if (questions.length === 0) return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal">
+        <div className="modal-title">Practice: {concept.name}</div>
+        <div className="empty-state" style={{padding:'20px'}}>
+          No questions available for this concept yet.
+        </div>
+        <div className="modal-actions">
+          <button className="btn btn-ghost" onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const q = questions[idx];
+  const done = finalScore !== null;
+  const correct = results.filter(Boolean).length;
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal" style={{width: 520}}>
+        <div className="modal-title">
+          Practice: {concept.name}
+          <span style={{marginLeft:'auto',fontSize:'0.72rem',color:'var(--text3)',fontWeight:400}}>
+            {done ? `${correct}/${questions.length}` : `${idx + 1} / ${questions.length}`}
+          </span>
+        </div>
+
+        {/* Progress pips */}
+        <div className="quiz-progress">
+          {questions.map((_, i) => (
+            <div key={i} className={`quiz-pip ${
+              i < results.length ? (results[i] ? 'correct' : 'wrong')
+              : i === idx && !done ? 'current' : ''
+            }`} />
+          ))}
+        </div>
+
+        {done ? (
+          <div className="quiz-score-result">
+            <div className="quiz-score-val" style={{color: finalScore >= 0.6 ? 'var(--green)' : 'var(--red)'}}>
+              {Math.round(finalScore * 100)}%
+            </div>
+            <div className="quiz-score-lbl">Updated Mastery Score</div>
+            <div style={{fontSize:'0.78rem',color:'var(--text2)',marginTop:10}}>
+              {correct} of {questions.length} correct
+            </div>
+            <div className="modal-actions" style={{justifyContent:'center',marginTop:16}}>
+              <button className="btn btn-primary" onClick={() => { onDone(); onClose(); }}>
+                Done
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="quiz-question">{q.question_text}</div>
+            {!revealed ? (
+              <button className="btn btn-ghost" style={{marginBottom:20,width:'100%'}}
+                onClick={() => setRevealed(true)}>
+                Show Answer
+              </button>
+            ) : (
+              <div className="quiz-answer">
+                <strong>Answer: </strong>{q.correct_answer}
+              </div>
+            )}
+            {revealed && (
+              <div className="quiz-btns">
+                <button className="quiz-btn-wrong"  onClick={() => submitAnswer(false)}>✗ Got it wrong</button>
+                <button className="quiz-btn-correct" onClick={() => submitAnswer(true)}>✓ Got it right</button>
+              </div>
+            )}
+            {!revealed && (
+              <div style={{fontSize:'0.72rem',color:'var(--text3)',textAlign:'center'}}>
+                Try to recall the answer, then reveal to check yourself
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── GapCard ────────────────────────────────────────────────────────────────────
+
+function GapCard({ gap, allScores, onViewGraph, onPractice }) {
+  const weakScore = allScores[gap.weak_concept_id] ?? 0;
+  const rootScore = allScores[gap.root_gap_id] ?? 0;
+  const isSame    = gap.weak_concept_id === gap.root_gap_id;
+
+  return (
+    <div className="gap-card">
+      <div className="gap-card-header">
+        <div>
+          <div className="gap-card-title">{gap.weak_concept_name}</div>
+          <div className="gap-card-subtitle">Weak concept · score below threshold</div>
+        </div>
+        <span className="mastery m-0" style={{color:'var(--red)',background:'rgba(244,63,94,0.1)',border:'1px solid rgba(244,63,94,0.2)',flexShrink:0}}>
+          {Math.round(weakScore * 100)}%
+        </span>
+      </div>
+
+      {/* Score bars */}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
+        <ScoreBar score={weakScore} label={gap.weak_concept_name} />
+        {!isSame && <ScoreBar score={rootScore} label={gap.root_gap_name} />}
+      </div>
+
+      {/* Chain diagram */}
+      <div className="gap-chain">
+        <div className="gap-chain-node weak">
+          <div className="gap-chain-lbl" style={{color:'var(--text3)'}}>Struggling with</div>
+          <div className="gap-chain-name">{gap.weak_concept_name}</div>
+        </div>
+        {isSame ? (
+          <div className="gap-chain-same">no weaker prerequisite found</div>
+        ) : (
+          <>
+            <div className="gap-chain-arrow">←</div>
+            <div className="gap-chain-node">
+              <div className="gap-chain-lbl" style={{color:'var(--red)'}}>Root Gap</div>
+              <div className="gap-chain-name" style={{color:'var(--red)'}}>{gap.root_gap_name}</div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Recommendation */}
+      <div className="gap-recommendation">{gap.recommendation}</div>
+
+      {/* Actions */}
+      <div className="gap-actions">
+        <button className="btn btn-ghost btn-sm" onClick={() => onViewGraph(gap.root_gap_id)}>
+          <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" style={{width:12,height:12}}>
+            <circle cx="3" cy="7" r="2"/><circle cx="11" cy="3" r="2"/><circle cx="11" cy="11" r="2"/>
+            <line x1="5" y1="6.5" x2="9.2" y2="3.8"/><line x1="5" y1="7.5" x2="9.2" y2="10.2"/>
+          </svg>
+          View in Graph
+        </button>
+        <button className="btn btn-ghost btn-sm" onClick={() => onPractice(gap.root_gap_id)}>
+          ✎ Practice Quiz
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── GapDiagnosisView ───────────────────────────────────────────────────────────
+
+function GapDiagnosisView({ concepts, diagnosis, loading, onRefresh, onViewGraph, push }) {
+  const [quizConcept, setQuizConcept] = useState(null);
+
+  function handlePractice(conceptId) {
+    const c = concepts.find(x => x.id === conceptId);
+    if (c) setQuizConcept(c);
+  }
+
+  const conceptMap = useMemo(() => {
+    const m = {};
+    concepts.forEach(c => m[c.id] = c);
+    return m;
+  }, [concepts]);
+
+  const allScores  = diagnosis?.all_scores ?? {};
+  const gaps       = diagnosis?.gaps ?? [];
+  const threshold  = diagnosis?.weak_threshold ?? 0.6;
+
+  const weakCount  = Object.values(allScores).filter(s => s < threshold && s > 0).length;
+  const rootGapIds = new Set(gaps.map(g => g.root_gap_id));
+
+  return (
+    <div className="stack">
+      {/* Toolbar */}
+      <div className="diag-toolbar">
+        <div>
+          <div style={{fontSize:'0.78rem',color:'var(--text3)'}}>
+            Threshold: concepts below <strong style={{color:'var(--text)'}}>{Math.round(threshold * 100)}%</strong> mastery score are considered weak
+          </div>
+        </div>
+        <button className="btn btn-primary" onClick={onRefresh} disabled={loading}>
+          {loading ? '…' : '⟳ Re-run Diagnosis'}
+        </button>
+      </div>
+
+      {/* Summary bar */}
+      {diagnosis && (
+        <div className="diag-summary">
+          <div className="diag-summary-item">
+            <div className="diag-summary-val" style={{color: gaps.length > 0 ? 'var(--red)' : 'var(--green)'}}>
+              {gaps.length}
+            </div>
+            <div className="diag-summary-lbl">Gaps Found</div>
+          </div>
+          <div className="diag-divider" />
+          <div className="diag-summary-item">
+            <div className="diag-summary-val" style={{color:'var(--red)'}}>{rootGapIds.size}</div>
+            <div className="diag-summary-lbl">Root Causes</div>
+          </div>
+          <div className="diag-divider" />
+          <div className="diag-summary-item">
+            <div className="diag-summary-val" style={{color:'var(--amber)'}}>{weakCount}</div>
+            <div className="diag-summary-lbl">Weak Concepts</div>
+          </div>
+          <div className="diag-divider" />
+          <div className="diag-summary-item">
+            <div className="diag-summary-val" style={{color:'var(--cyan)'}}>{concepts.length}</div>
+            <div className="diag-summary-lbl">Total Concepts</div>
+          </div>
+          <div style={{marginLeft:'auto',fontSize:'0.72rem',color:'var(--text3)'}}>
+            Scores from quiz answers · fallback: mastery slider
+          </div>
+        </div>
+      )}
+
+      {/* Content */}
+      {loading && <div className="empty-state">Running diagnosis…</div>}
+
+      {!loading && !diagnosis && (
+        <div className="empty-state">
+          Click "Re-run Diagnosis" to scan your concept graph for knowledge gaps.
+        </div>
+      )}
+
+      {!loading && diagnosis && gaps.length === 0 && (
+        <div className="card">
+          <div className="diag-success">
+            <div className="diag-success-icon">✓</div>
+            <div className="diag-success-title">No gaps detected!</div>
+            <div className="diag-success-sub">
+              All concepts with prerequisites are above the {Math.round(threshold * 100)}% threshold.<br/>
+              Keep studying and re-run as you progress.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!loading && gaps.length > 0 && (
+        <>
+          <div style={{fontSize:'0.8rem',color:'var(--text3)',marginBottom:-4}}>
+            {gaps.length} issue{gaps.length !== 1 ? 's' : ''} found — sorted by urgency (lowest score first)
+          </div>
+          {gaps.map((gap, i) => (
+            <GapCard
+              key={`${gap.weak_concept_id}-${gap.root_gap_id}`}
+              gap={gap}
+              allScores={allScores}
+              onViewGraph={onViewGraph}
+              onPractice={handlePractice}
+            />
+          ))}
+        </>
+      )}
+
+      {/* Score overview — all concepts */}
+      {diagnosis && Object.keys(allScores).length > 0 && (
+        <div className="card" style={{marginTop:8}}>
+          <div className="card-title">Mastery Score Overview</div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:12}}>
+            {concepts.map(c => {
+              const score = allScores[c.id] ?? 0;
+              const isRoot = rootGapIds.has(c.id);
+              const isWeak = score < threshold && score > 0;
+              return (
+                <div key={c.id} style={{
+                  padding:'10px 12px',
+                  background:'var(--surface2)',
+                  borderRadius:'var(--r)',
+                  border: isRoot ? '1px solid rgba(244,63,94,0.4)'
+                        : isWeak ? '1px solid rgba(245,158,11,0.3)'
+                        : '1px solid var(--border)',
+                }}>
+                  <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6}}>
+                    {isRoot && <span style={{fontSize:'0.65rem',color:'var(--red)',border:'1px solid rgba(244,63,94,0.3)',borderRadius:4,padding:'1px 5px'}}>ROOT GAP</span>}
+                    {isWeak && !isRoot && <span style={{fontSize:'0.65rem',color:'var(--amber)',border:'1px solid rgba(245,158,11,0.3)',borderRadius:4,padding:'1px 5px'}}>WEAK</span>}
+                    <span style={{fontFamily:'var(--font-head)',fontSize:'0.78rem',fontWeight:600,
+                      overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}}>
+                      {c.name}
+                    </span>
+                  </div>
+                  <ScoreBar score={score} />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Quiz modal */}
+      {quizConcept && (
+        <QuizModal
+          concept={quizConcept}
+          onClose={() => setQuizConcept(null)}
+          onDone={onRefresh}
+          push={push}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Main App ───────────────────────────────────────────────────────────────────
+
+function App() {
+  const [tab, setTab] = useState('dashboard');
+  const [concepts, setConcepts] = useState([]);
+  const [studyPlan, setStudyPlan] = useState(null);
+  const [stats, setStats] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [diagnosis, setDiagnosis] = useState(null);
+  const [diagLoading, setDiagLoading] = useState(false);
+  const [addModal, setAddModal] = useState(false);
+  const [linkModal, setLinkModal] = useState(false);
+  const [addPrereqFor, setAddPrereqFor] = useState(null);
+  const { toasts, push } = useToast();
+
+  async function refresh() {
+    try {
+      const [cs, sp, st] = await Promise.all([
+        api('/concepts'),
+        api('/study-plan?max_tasks=3'),
+        api('/stats'),
+      ]);
+      setConcepts(cs);
+      setStudyPlan(sp);
+      setStats(st);
+    } catch(e) {
+      push('Failed to load data — is the backend running?', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function runDiagnosis() {
+    setDiagLoading(true);
+    try {
+      const d = await api('/diagnose-learning-gaps');
+      setDiagnosis(d);
+      await refresh(); // study plan may have changed (gap priority)
+    } catch(e) {
+      push('Diagnosis failed: ' + e.message, 'error');
+    } finally {
+      setDiagLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    refresh().then(() => runDiagnosis());
+  }, []);
+
+  async function onMastery(conceptId, level) {
+    try {
+      await api(`/progress/${conceptId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ mastery_level: level }),
+      });
+      push(`Mastery updated → ${MASTERY_LABELS[level]}`, 'success');
+      refresh();
+    } catch(e) {
+      push(e.message, 'error');
+    }
+  }
+
+  async function onDelete(id, name) {
+    if (!confirm(`Delete "${name}"? This will remove all prerequisite links.`)) return;
+    try {
+      await api(`/concepts/${id}`, { method: 'DELETE' });
+      push(`Deleted "${name}"`, 'info');
+      refresh();
+    } catch(e) {
+      push(e.message, 'error');
+    }
+  }
+
+  async function onRemovePrereq(conceptId, prereqId) {
+    try {
+      await api(`/prerequisites/${conceptId}/${prereqId}`, { method: 'DELETE' });
+      push('Prerequisite removed', 'info');
+      refresh();
+    } catch(e) {
+      push(e.message, 'error');
+    }
+  }
+
+  async function seedData() {
+    try {
+      await api('/seed', { method: 'POST' });
+      push('ML curriculum loaded!', 'success');
+      refresh();
+    } catch(e) {
+      push(e.message, 'error');
+    }
+  }
+
+  function handleAddPrereq(concept) {
+    setAddPrereqFor(concept);
+    setLinkModal(true);
+  }
+
+  function handleViewInGraph(conceptId) {
+    setTab('graph');
+    // GraphView reads this via a shared ref
+    window.__jumpToNode = conceptId;
+  }
+
+  const gapCount = diagnosis?.gaps?.length ?? 0;
+
+  const nav = [
+    { id: 'dashboard', label: 'Dashboard',  icon: icons.dashboard },
+    { id: 'concepts',  label: 'Concepts',   icon: icons.list },
+    { id: 'graph',     label: 'Graph',       icon: icons.graph },
+    { id: 'diagnose',  label: 'Diagnose',    icon: (
+        <svg className="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <circle cx="8" cy="8" r="6"/>
+          <line x1="8" y1="5" x2="8" y2="8"/><circle cx="8" cy="11" r="0.5" fill="currentColor" stroke="none"/>
+        </svg>
+      ), badge: gapCount > 0 ? gapCount : null
+    },
+  ];
+
+  return (
+    <div className="app-shell">
+      {/* Header */}
+      <header className="header">
+        <div className="logo">Learning<span> OS</span></div>
+        <div className="header-stats">
+          <div className="hstat">
+            <span className="hstat-val" style={{color:'var(--green)'}}>{stats.completion_pct ?? 0}%</span>
+            <span className="hstat-lbl">Complete</span>
+          </div>
+          <div className="hstat">
+            <span className="hstat-val">{stats.mastered ?? 0}/{stats.total_concepts ?? 0}</span>
+            <span className="hstat-lbl">Mastered</span>
+          </div>
+          <div className="hstat">
+            <span className="hstat-val" style={{color:'var(--amber)'}}>{stats.available_to_study ?? 0}</span>
+            <span className="hstat-lbl">Available</span>
+          </div>
+        </div>
+      </header>
+
+      {/* Sidebar */}
+      <nav className="sidebar">
+        <div className="nav-section">
+          <div className="nav-label">Navigation</div>
+          {nav.map(n => (
+            <div key={n.id}
+              className={`nav-item ${tab === n.id ? 'active' : ''}`}
+              onClick={() => setTab(n.id)}
+              style={{position:'relative'}}>
+              {n.icon} {n.label}
+              {n.badge && (
+                <span style={{
+                  marginLeft:'auto',
+                  background:'var(--red)',
+                  color:'#fff',
+                  borderRadius:'10px',
+                  fontSize:'0.65rem',
+                  fontWeight:700,
+                  padding:'1px 6px',
+                  lineHeight:'1.6',
+                }}>
+                  {n.badge}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div className="nav-section" style={{marginTop:16}}>
+          <div className="nav-label">Actions</div>
+          <div className="nav-item" onClick={() => setAddModal(true)}>
+            {icons.plus} Add Concept
+          </div>
+          <div className="nav-item" onClick={() => setLinkModal(true)}>
+            <svg className="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <circle cx="3" cy="8" r="2"/><circle cx="13" cy="8" r="2"/>
+              <line x1="5" y1="8" x2="11" y2="8"/>
+            </svg>
+            Link Prerequisite
+          </div>
+          <div className="nav-item" onClick={seedData} style={{borderTop:'1px solid var(--border)',marginTop:8,paddingTop:12}}>
+            <svg className="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <circle cx="8" cy="8" r="6"/>
+              <path d="M8 5v3l2 2"/>
+            </svg>
+            Load ML Example
+          </div>
+        </div>
+
+        {/* Mini mastery legend */}
+        <div style={{padding:'20px',marginTop:'auto'}}>
+          <div className="nav-label" style={{marginBottom:8}}>Mastery Levels</div>
+          {MASTERY_LABELS.map((l,i) => (
+            <div key={i} style={{display:'flex',alignItems:'center',gap:6,marginBottom:5}}>
+              <span className={`mastery ${MASTERY_CLS[i]}`} style={{fontSize:'0.65rem'}}>{i}</span>
+              <span style={{fontSize:'0.72rem',color:'var(--text3)'}}>{l}</span>
+            </div>
+          ))}
+        </div>
+      </nav>
+
+      {/* Main content */}
+      <main className="main">
+        {tab === 'dashboard' && (
+          <>
+            <div className="page-title">Dashboard</div>
+            <div className="page-sub">Your learning progress at a glance</div>
+            <Dashboard
+              concepts={concepts}
+              studyPlan={studyPlan}
+              stats={stats}
+              onMastery={onMastery}
+              loading={loading}
+            />
+          </>
+        )}
+
+        {tab === 'concepts' && (
+          <>
+            <div className="page-title">Concepts</div>
+            <div className="page-sub">{concepts.length} concept{concepts.length !== 1 ? 's' : ''} in your graph</div>
+            <ConceptsList
+              concepts={concepts}
+              onMastery={onMastery}
+              onDelete={onDelete}
+              onAddPrereq={handleAddPrereq}
+              onRemovePrereq={onRemovePrereq}
+              onAdd={refresh}
+              push={push}
+            />
+          </>
+        )}
+
+        {tab === 'graph' && (
+          <>
+            <div className="page-title">Concept Graph</div>
+            <div className="page-sub">Dependency map — prerequisites flow left to right</div>
+            <GraphView concepts={concepts} onMastery={onMastery} diagnosis={diagnosis} />
+          </>
+        )}
+
+        {tab === 'diagnose' && (
+          <>
+            <div className="page-title">Knowledge Gap Diagnosis</div>
+            <div className="page-sub">
+              Identifies the root prerequisite causing your difficulty — scored from quiz answers
+            </div>
+            <GapDiagnosisView
+              concepts={concepts}
+              diagnosis={diagnosis}
+              loading={diagLoading}
+              onRefresh={runDiagnosis}
+              onViewGraph={handleViewInGraph}
+              push={push}
+            />
+          </>
+        )}
+      </main>
+
+      {/* Modals */}
+      {addModal && (
+        <AddConceptModal
+          onClose={() => setAddModal(false)}
+          onAdd={refresh}
+          push={push}
+        />
+      )}
+      {linkModal && (
+        <LinkPrereqModal
+          concepts={concepts}
+          onClose={() => { setLinkModal(false); setAddPrereqFor(null); }}
+          onLink={refresh}
+          push={push}
+        />
+      )}
+
+      <Toasts toasts={toasts} />
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
