@@ -895,7 +895,7 @@
 <script type="text/babel">
 const { useState, useEffect, useCallback, useRef, useMemo } = React;
 
-const API = 'http://localhost:8000';
+const API = window.location.hostname === 'localhost' ? 'http://localhost:8000' : '';
 
 const MASTERY_LABELS = ['Not Started', 'Learning', 'Practicing', 'Mastered'];
 const MASTERY_SHORT  = ['0', '1', '2', '✓'];
